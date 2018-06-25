@@ -10,11 +10,18 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Scanner;
 import javax.swing.JOptionPane;
+import mynetworkingapps.multichat.dao.ChatClientDAO;
+import mynetworkingapps.multichat.dao.ChatLogDAO;
+import mynetworkingapps.multichat.dbutil.DBConnection;
+import mynetworkingapps.multichat.pojo.ChatClient;
+import mynetworkingapps.multichat.pojo.ChatLog;
 
 /**
  *
@@ -28,6 +35,8 @@ public class GroupChatServer extends javax.swing.JFrame {
     final PrintWriter filePrintWriter;
     FileWriter fileWriter;
     SimpleDateFormat sdf;
+    
+    
     /**
      * Creates new form GroupChatServer
      */
@@ -42,6 +51,41 @@ public class GroupChatServer extends javax.swing.JFrame {
         }
         filePrintWriter = new PrintWriter(fileWriter,true);
         sdf = new SimpleDateFormat("HH:mm:ss,dd-MMM-yyyy");
+    }
+    
+    public static void addClinetToDB(String user, String password) throws SQLException {
+        ChatClient chatClient = new ChatClient();
+        chatClient.setUsername(user);
+        chatClient.setPassword(password);
+        boolean result = ChatClientDAO.addClient(chatClient);
+        if(result == false)
+            System.out.print("User added to database\n");
+        else
+            System.out.println("Some error occured while adding user to database\n");
+    }
+    
+    public static void resetPassword(String user, String password) throws SQLException {
+        ChatClient chatClient = new ChatClient();
+        chatClient.setUsername(user);
+        chatClient.setPassword(password);
+        boolean result = ChatClientDAO.resetPassword(chatClient);
+        if(result == false)
+            System.out.print("Password reset successfull.\n");
+        else
+            System.out.println("Some error occured while resetting password.\n");
+    }
+    
+    public static void addMobile(String user, Long mobile) throws SQLException {
+        boolean result = ChatClientDAO.addClientMobile(user, mobile);
+        if(result == false)
+            System.out.print("User added to database\n");
+        else
+            System.out.println("Some error occured while adding user to database\n");
+    }
+    
+    public static String findMobile(String user) throws SQLException {
+        long mobile = ChatClientDAO.findClientMobile(user);
+        return Long.toString(mobile);
     }
     
     class WaitingForClient extends Thread {
@@ -63,6 +107,7 @@ public class GroupChatServer extends javax.swing.JFrame {
         }
     }
     
+  
     class ChatHandler extends Thread {
         Socket client;
         Scanner sc;
@@ -75,23 +120,85 @@ public class GroupChatServer extends javax.swing.JFrame {
         public void run() {
             try {
                 String name;
+                boolean login = false;
                 sc = new Scanner(client.getInputStream());
                 pw = new PrintWriter(client.getOutputStream());
+                parent:
                 while(true) {
+                    login = true;
                     name = sc.nextLine();
-                    if(userNames.contains(name)) {
+                    System.out.println("String name recieved : " + name);
+                    //User alredy exist
+                    if(ChatClientDAO.findClient(name)) {
                         pw.println(false);
                         pw.flush();
+                        System.out.println("boolean sent : " + false);
+                        while(true) {
+                            String password = sc.next();
+                            System.out.println("String passowrd recieved : " + password);
+                            boolean found = ChatClientDAO.authenticate(name,password);
+                            System.out.print("ChatClientDAO.authenticate(name,password for name = " + name + " password = " + password);
+                            System.out.println("found = " + found);
+                            if(found) {
+                                //login succesfull
+                                pw.println(false);
+                                if(userNames.contains(name)) {
+                                    pw.println(false);
+                                    pw.flush();
+                                    break parent;
+                                } else {
+                                    pw.println(true);
+                                    pw.flush();
+                                    System.out.println("boolean sent for succesful login: " + false);
+                                    userNames.add(name);
+                                    jTextArea1.append("\nConnected with client : " + name);
+                                    printWriter.add(pw);
+                                    break parent;
+                                }
+                            } else {
+                                //Password missmatch
+                                pw.println(true);
+                                pw.println(true);
+                                pw.flush();
+                                System.out.println("boolean sent for login failed: " + true);
+                                boolean reset = sc.nextBoolean();
+                                if(reset) {
+                                    System.out.println("Resetting password");
+                                    String mobile = findMobile(name);
+                                    System.out.println("mobile is " + mobile);
+                                    //mobile no. sent to client
+                                    pw.println(mobile);
+                                    pw.flush();
+                                    
+                                    reset = sc.nextBoolean();
+                                    if(reset) {
+                                        String newPassword = sc.next();
+                                        resetPassword(name, newPassword);
+                                    } else {
+                                        break parent;
+                                    }  
+                                } 
+                            }
+                        }
                     }
+                    //Create user
                     else {
-                        userNames.add(name);
-                        jTextArea1.append("\nConnected with client : " + name);
-                        printWriter.add(pw);
                         pw.println(true);
                         pw.flush();
+                        System.out.println("boolean sent for user creation: " + true);
+                        String password = sc.next();
+                        System.out.println("String password recieved user creation : " + password);
+                        userNames.add(name);
+                        jTextArea1.append("\nConnected with client : " + name);
+                        addClinetToDB(name,password);
+                        printWriter.add(pw);
+                                                
+                        String mobile = sc.next();
+                        addMobile(name,Long.parseLong(mobile));
                         break;
                     }
                 }
+                if(login == true)
                 while(true) {
                     String str = sc.nextLine();
                     if(str.equals("quit")) {
@@ -104,7 +211,24 @@ public class GroupChatServer extends javax.swing.JFrame {
                     }
                     synchronized(filePrintWriter) {
                         filePrintWriter.println(str + "(" + sdf.format(new Date()).toString() + ")");
-                        //filePrintWriter.newLine();
+                        String str1[] = str.split(":");
+                        ChatLog chatLog=new ChatLog();
+                        if(str1.length == 2) {
+                            chatLog.setUser(str1[0].trim());
+                            System.out.println("user : " + str1[0].trim());
+                        } else {
+                            chatLog.setUser("server");
+                            System.out.println("user : server");
+                        }
+                        if(str1.length == 2) {
+                            chatLog.setMessage(str1[1].trim());
+                            System.out.println("msg = " + str1[1].trim());
+                        } else {
+                            chatLog.setMessage(str1[0].trim());
+                            System.out.println("msg = " + str1[0].trim());
+                        }
+                        chatLog.setTime(sdf.format(new Date()).toString());
+                        ChatLogDAO.logChat(chatLog);
                     }
                     for(PrintWriter temp : printWriter) {
                         //if(temp.equals(pw) == false)
@@ -203,11 +327,17 @@ public class GroupChatServer extends javax.swing.JFrame {
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         // TODO add your handling code here:
-        jTextArea1.setText("Waiting for client at port 2222");
-        WaitingForClient waitingForClient = new WaitingForClient();
-        waitingForClient.start();
-        jButton1.setEnabled(false);
-        jButton2.setEnabled(true);
+        Connection conn = DBConnection.getConnection();
+        if(conn != null) {
+            jTextArea1.setText("Waiting for client at port 2222");
+            WaitingForClient waitingForClient = new WaitingForClient();
+            waitingForClient.start();
+            jButton1.setEnabled(false);
+            jButton2.setEnabled(true);
+        } else {
+            JOptionPane.showMessageDialog(null,"Error in Connecting to database" ,"Error!",JOptionPane.ERROR_MESSAGE);
+        }
+        
     }//GEN-LAST:event_jButton1ActionPerformed
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed

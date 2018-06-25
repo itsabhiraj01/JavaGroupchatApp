@@ -21,12 +21,22 @@ public class DBConnection {
         try {
             Class.forName("oracle.jdbc.OracleDriver");
             
-            conn = DriverManager.getConnection("jdbc:oracle:thin:@//Sachin-PC/orcl","chatdata","chatapp");
+//            conn = DriverManager.getConnection("jdbc:oracle:thin:@//Sachin-PC/orcl","chatdata","chatapp");
+            conn = DriverManager.getConnection("jdbc:oracle:thin:@localhost:1521:XE","abhiraj","ast");
             JOptionPane.showMessageDialog(null,"Connected succesfull to the database","Success!",JOptionPane.INFORMATION_MESSAGE);
             
         }
         catch(Exception e) {
             System.out.println(e);
+        }
+    }
+    
+    public static void main(String args[]) {
+        if(conn == null) {
+            System.out.println("Not connected");
+        }
+        else {
+            System.out.println("Connected to server");
         }
     }
     

@@ -3,10 +3,9 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/Users/ABHIRAJ/Documents/NetBeansProjects/MyNetworkingApps/src/mynetworkingapps/multichat/pojo/ChatClientPOJO.java</file>
+            <file>file:/C:/Users/ABHIRAJ/Documents/NetBeansProjects/MyNetworkingApps/src/mynetworkingapps/multichat/gui/GroupChatClient.java</file>
             <file>file:/C:/Users/ABHIRAJ/Documents/NetBeansProjects/MyNetworkingApps/src/mynetworkingapps/multichat/dao/ChatLogDAO.java</file>
-            <file>file:/C:/Users/ABHIRAJ/Documents/NetBeansProjects/MyNetworkingApps/src/mynetworkingapps/multichat/pojo/ChatLogPOJO.java</file>
-            <file>file:/C:/Users/ABHIRAJ/Documents/NetBeansProjects/MyNetworkingApps/src/mynetworkingapps/multichat/dao/ChatClientDAO.java</file>
+            <file>file:/C:/Users/ABHIRAJ/Documents/NetBeansProjects/MyNetworkingApps/src/mynetworkingapps/multichat/gui/GroupChatServer.java</file>
         </group>
     </open-files>
 </project-private>

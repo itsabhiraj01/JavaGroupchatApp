@@ -6,6 +6,12 @@
 package mynetworkingapps.multichat.gui;
 //import mynetworkingapps.multichat.gui.GroupChatClient.ChatThread;
 
+import com.twilio.Twilio;
+import com.twilio.rest.api.v2010.account.Message;
+//import com.twilio.rest.lookups.v1.PhoneNumber;
+import com.twilio.Twilio;
+import com.twilio.rest.api.v2010.account.Message;
+import com.twilio.type.PhoneNumber;
 import java.awt.Color;
 import java.io.PrintWriter;
 import java.net.InetAddress;
@@ -22,6 +28,11 @@ public class GroupChatClient extends javax.swing.JFrame {
     
     Random random = new Random();
     
+    public static final String ACCOUNT_SID =
+            "ACdae6c59aae455d8041cb6137cc5952c7";
+    public static final String AUTH_TOKEN =
+            "b7a2b083b8297617eebc3f08947afa87";
+    
     InetAddress ia;
     Socket sock;
     PrintWriter pw;
@@ -32,6 +43,7 @@ public class GroupChatClient extends javax.swing.JFrame {
      * Creates new form GroupChatClient
      */
     public GroupChatClient() {
+        Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
         initComponents();
     }
 
@@ -100,6 +112,7 @@ public class GroupChatClient extends javax.swing.JFrame {
         jTextArea1.setRows(5);
         jScrollPane1.setViewportView(jTextArea1);
 
+        jTextField1.setEnabled(false);
         jTextField1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jTextField1ActionPerformed(evt);
@@ -193,25 +206,125 @@ public class GroupChatClient extends javax.swing.JFrame {
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         // TODO add your handling code here:
         try {
+        boolean login = false;
         ia = InetAddress.getLocalHost();
         sock = new Socket(ia,2222);
         sc = new Scanner(sock.getInputStream());
         pw = new PrintWriter(sock.getOutputStream());
         boolean flag = false; 
-        String str = " ", dialogHeader = "Enter username";
-        do {
-            str = JOptionPane.showInputDialog(null,dialogHeader,"Name required",JOptionPane.PLAIN_MESSAGE);
+        String str = "", dialogMsg = "Enter username", dialogHeader = "Sign In/Sign up";
+        str = JOptionPane.showInputDialog(null,dialogMsg,dialogHeader,JOptionPane.PLAIN_MESSAGE);
+        if(str == null || str.isEmpty()) {
+            while(str == null || str.isEmpty()) {
+                dialogMsg = "Enter a valid username";
+                str = JOptionPane.showInputDialog(null,dialogMsg,dialogHeader,JOptionPane.PLAIN_MESSAGE);
+            }
+        } else {
+            login = true;
             pw.println(str);
             pw.flush();
             flag = sc.nextBoolean();
-            if(flag == false)
-                dialogHeader = "Name Already exists!";
-        }while(!flag);
-        jLabel3.setText("User Logged in as : " + str);
-        name = str;
-        jButton1.setEnabled(false);
-        ChatThread chatThread = new ChatThread();
-        chatThread.start();
+            if(flag == false) {
+                System.out.println("User found");
+                dialogMsg = "Enter Password ";
+                dialogHeader = "Authentication";
+                while(true) {
+                    str = JOptionPane.showInputDialog(null,dialogMsg,dialogHeader,JOptionPane.PLAIN_MESSAGE);
+                    if(str == null || str.isEmpty()) {
+                        login = false;
+                        break;
+                    }
+                    pw.println(str);
+                    pw.flush();
+                    flag = sc.nextBoolean();
+                    boolean secondFlag = sc.nextBoolean();
+                    if(secondFlag == false) {
+                        JOptionPane.showMessageDialog(null,"Can't create multiple sessions for a single user",
+                                "Error!",JOptionPane.ERROR_MESSAGE);
+                        login = false;
+                    }
+                    if(flag == true) {
+                        Object[] options = { "RESET" , "CANCEL"};
+                        int choice = JOptionPane.showOptionDialog(null,"Click on reset to reset Password", "Warning",
+                                JOptionPane.DEFAULT_OPTION,JOptionPane.QUESTION_MESSAGE,null, options, options[0]);
+                        if(choice == JOptionPane.YES_OPTION){
+                            pw.println(true);
+                            pw.flush();
+                            String mobile = sc.next();
+                            System.out.println("reset password");
+                            int code = (int)((Math.random()*(9999-1000) + 1) + 1000);
+                            mobile = "+91" + mobile;
+                            //Sending otp using web api
+                            Message message = Message
+                            .creator(new PhoneNumber(mobile), // to
+                            new PhoneNumber("+17576074703"), // from
+                            "Otp for groupchat " + code)
+                            .create();
+            
+                            System.out.println(message.getSid());
+                            System.out.println("passcode : " + code);
+                            
+                            String otp = JOptionPane.showInputDialog(null,
+                                    "Enter otp sent to ","Reset Password",JOptionPane.PLAIN_MESSAGE);
+                            if(code == Integer.parseInt(otp)) {
+                                System.out.println("OTP Matched");
+                                str = JOptionPane.showInputDialog(null,dialogMsg,dialogHeader,JOptionPane.PLAIN_MESSAGE);
+                                while(str == null || str.isEmpty()) {
+                                    dialogMsg = "Password can not be empty";
+                                    str = JOptionPane.showInputDialog(null,dialogMsg,dialogHeader,JOptionPane.PLAIN_MESSAGE);
+                                }
+                                pw.println(true);
+                                pw.flush();
+                                pw.println(str);
+                                pw.flush();
+                            }
+                            else {
+                                JOptionPane.showMessageDialog(null,"Incorrect otp","Authentication Failed",JOptionPane.ERROR_MESSAGE);
+                                pw.println(false);
+                                pw.flush();
+                                login = false;
+                                break;
+                            }
+                        } else {
+                            pw.println(false);
+                            pw.flush();
+                            System.out.println("dont want to reset password");
+                        }
+                    } else
+                        break;
+                }
+            } else {
+                //Creating a new user
+                System.out.println("User Created");
+                dialogMsg = "Enter a new Password ";
+                dialogHeader = "Create Password";
+                str = JOptionPane.showInputDialog(null,dialogMsg,dialogHeader,JOptionPane.PLAIN_MESSAGE);
+                while(str == null || str.isEmpty()) {
+                    dialogMsg = "Password can not be empty";
+                    str = JOptionPane.showInputDialog(null,dialogMsg,dialogHeader,JOptionPane.PLAIN_MESSAGE);
+                }     
+                pw.println(str);
+                pw.flush(); 
+                String mobile = JOptionPane.showInputDialog(null,"Enter mobile no : +91","Recovery option",JOptionPane.PLAIN_MESSAGE);
+//                if(str.length() != 10 || str == null || str.isEmpty()) {
+//                    System.out.println("Error in length or null value");
+                if(!(mobile == null || mobile.isEmpty())) {
+                    pw.println(mobile);
+                    pw.flush();
+                } else {
+                    pw.println("9425635869");
+                    pw.flush();
+                }    
+            }
+        }
+        if(login == true) {
+            jLabel3.setText("User Logged in as : " + str);
+            jTextField1.setEnabled(true);
+            name = str;
+            jButton1.setEnabled(false);
+            ChatThread chatThread = new ChatThread();
+            chatThread.start();
+            }
         }
         catch(Exception e) { 
             System.out.println(e); 
@@ -237,6 +350,9 @@ public class GroupChatClient extends javax.swing.JFrame {
         if(pw != null) {
         pw.println("quit");
         pw.flush();
+        }
+        else {
+            pw.close();
         }
     }//GEN-LAST:event_formWindowClosing
 
